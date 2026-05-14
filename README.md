@@ -1,66 +1,133 @@
-# analisis-datos-python
-Análisis de Calidad en Proceso de Flotación Inversa de Hierro
-Portafolio · Martín Jesús Villón Urday
+!pip install kagglehub
 
-El problema de negocio
-Una planta minera de hierro genera toneladas de datos de sensores cada hora – flujos de aire, niveles de pulpa, dosis de reactivos – pero sin un análisis estructurado, ese volumen de información no mejora las decisiones operativas.
+!mkdir -p ~/.kaggle
 
-Pregunta central: ¿Qué variables del proceso de flotación tienen mayor influencia sobre la pureza del concentrado de hierro? ¿Y qué problemas de calidad tiene el conjunto de datos que impiden responder esa pregunta directamente?
+!echo KGAT_e57ba34133bfa1268e51d8f06908b623 > ~/.kaggle/access_token
 
-Conjunto de datos
-Importancia	Detalle
-Fuente	Kaggle — Planta de flotación para procesos mineros
-Período	Marzo – Mayo 2017 (64 días)
-Tamaño original	220.000 filas × 23 columnas
-Variable objetivo	% de concentrado de hierro
-Problemas encontrados en los datos
-Durante la auditoría del conjunto de datos identifiqué 5 problemas que harían fallar cualquier modelo entrenado directamente sobre el archivo original:
+!chmod 600 ~/.kaggle/access_token
 
-1. Separador decimal incorrecto
-Todas las columnas numéricas usaban coma como separador decimal (formato europeo). Sin corrección, pandas las lee como texto y cualquier operación estadística falla silenciosamente.
 
-2. Granularidad temporal mixta
-El conjunto de datos tiene 220.000 filas pero solo 1.223 marcas de tiempo únicas. Existen dos frecuencias mezcladas sin documentarlo:
+!kaggle competitions list
 
-Variables de laboratorio (% Fe, % SiO₂, % Concentrado): se miden una vez por hora y se repiten en ~180 filas idénticas
-Variables de proceso (flujos, niveles): sí fluctúan dentro de cada hora
-Entrenar un modelo sin separar estas frecuencias genera fugas de datos y resultados engañosamente buenos.
+import kagglehub
 
-3. Comportamiento bimodal en Air Flow (celdas 01–03)
-Las columnas de flujo de aire de las celdas 1, 2 y 3 tienen entre el 34–35% de sus valores clasificados como valores atípicos por IQR. No son errores — el análisis con K-Means confirmó que cada celda opera en dos regímenes distintos: activa (20.3% del tiempo) y baja carga (79.7%). Eliminarlos hubiera destruido información clave operativa.
+# Download latest version
+path = kagglehub.competition_download('GiveMeSomeCredit')
 
-4. Picos en el flujo de almidón
-El flujo de almidón presenta 9.269 picos (4,2% del conjunto de datos) con valores que caen hasta 367 g/t cuando la operación normal está entre 2.900–3.300 g/t. Se corrigieron mediante interpolación lineal por tiempo.
+print("Path to competition files:", path)
 
-5. Gap temporal de 13 días
-El proceso tiene una interrupción de 13 días y 7 horas sin registros. Crítico para no calcular características de retraso entre datos no contiguos.
+import pandas as pd
 
-Soluciones aplicadas
-220,000 filas × 23 cols  →  limpieza  →  1,223 filas × 64 cols  →  feature engineering  →  1,221 filas × 82 cols
-     (archivo original)                    (horario limpio)                                    (listo para modelo)
-Problema	Solución aplicada
-Decimal incorrecto	pd.read_csv(..., decimal=",")
-Granularidad mixta	Separación + agregación horaria (media, std, p95)
-Flujo de aire bimodal	K-Means k=2 → característica categórica por celda
-Flujo de almidón en picos	Interpolación lineal temporal
-Retraso temporal	Características t-1h y t-2h para 8 variables clave
-Hallazgos principales
-1. Las variables de aire mandan, no las de alimentación. La estimación lineal más fuerte con el concentrado final es el Air Flow de la columna 04 (r = −0.24) y columna 05 (r = +0.21). El % de hierro en la alimentación tiene una compensación de apenas −0.005. Esto sugiere que la operación de las celdas es más determinante que la calidad del mineral de entrada.
+# Definimos la ruta que te dio el sistema
+ruta_datos = '/root/.cache/kagglehub/competitions/GiveMeSomeCredit'
 
-2. Las relaciones son no lineales Las bajas correlaciones lineales (ninguna supera 0.25) no significan que las variables sean irrelevantes — significan que un modelo de regresión lineal simple no capturará la dinámica real. Se recomienda XGBoost o Random Forest que detectan interacciones entre columnas.
+# Cargamos el archivo de entrenamiento (train.csv)
+df = pd.read_csv(f'{ruta_datos}/cs-training.csv')
 
-3. Las celdas 01–03 tienen un patrón operativo diferente al resto. El 20% del tiempo estas celdas operan en alta carga, mientras que las celdas 04–07 son más estables. Esto puede indicar una estrategia operativa deliberada o un punto de atención para mantenimiento.
+df.head(10)
 
-Herramientas utilizadas
-Python· pandas· numpy· scikit-learn (KMeans)·matplotlib
+#Cambiar nombre
 
-Archivos del proyecto
-📁 proyecto-flotacion-hierro/
-├── limpieza_flotacion.py       # Pipeline completo de limpieza (documentado)
-├── flotacion_limpio_horario.csv  # Dataset horario limpio (1,223 filas)
-├── flotacion_listo_modelo.csv    # Dataset con features de lag (1,221 filas)
-└── README.md                   # Este archivo
-Próximo paso
-Con el conjunto de datos limpio, el siguiente análisis es entrenar un modelo XGBoost para predecir el % de hierro en el concentrado y determinar qué variables tienen mayor importancia real (característica importante). Eso permitiría a los operadores enfocarse en las 3–4 palancas que realmente mueven la aguja.
+nuevos_nombres= {'Unnamed: 0':'Id',
+                'SeriousDlqin2yrs':'Moroso_Grave',
+                'RevolvingUtilizationOfUnsecuredLines':'Lineas_de_Creditos',
+                'age':'edad',
+                'NumberOfTime30-59DaysPastDueNotWorse':'Veces_de_retrazo_30-59_dias',
+                'DebtRatio':'Deuda_Ratio',
+                'MonthlyIncome':'Ingreso_Mensual_bruto',
+                'NumberOfOpenCreditLinesAndLoans':'N.Creditos_Abiertos',
+                'Veces_de_retrazo_>=90dias':'Veces_de_retrazo_>=90dias',
+                'NumberRealEstateLoansOrLines':'N.Prestamos_hipotecarios',
+                'NumberOfTime60-89DaysPastDueNotWorse':'N.veces_retrazo_60-89_dias',
+                'NumberOfDependents':'N.personas_a_cargo'}
 
-Martín Jesús Villón Urday · Portafolio de Análisis de Datos · 2025 Administración de Empresas — con especialización autodidacta en análisis de datos
+df.rename(columns=nuevos_nombres, inplace=True)
+
+
+df.drop(columns=['Unnamed: 0', 'N.veces_retrazo_60-89_dias', 'N.personas_a_cargo'], inplace=True, errors='ignore')
+
+# Esto te da el promedio y el conteo (N) por cada grupo
+df.drop(columns='Id').groupby('Moroso_Grave').agg(['mean', 'count']).T
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# 1. Creamos una copia del dataframe sin el Id para el gráfico
+df_grafico = df.drop(columns='Id', errors='ignore')
+
+# 2. Generamos el mapa de calor con los datos limpios
+plt.figure(figsize=(10, 6))
+sns.heatmap(df_grafico.corr(), annot=True, cmap='coolwarm', fmt='.2f')
+plt.title('Mapa de Calor de Relaciones Crediticias (Sin Id)')
+plt.show()
+
+import numpy as np
+
+# Creamos una máscara para la mitad superior
+mask = np.triu(np.ones_like(df_grafico.corr(), dtype=bool))
+
+sns.heatmap(df_grafico.corr(), annot=True, mask=mask, cmap='coolwarm', fmt='.2f')
+plt.show()
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Creamos una cuadrícula para ver varias columnas a la vez
+cols_interes = ['Edad', 'Deuda_Ratio', 'Ingreso_Mensual_bruto']
+plt.figure(figsize=(15, 5))
+
+for i, col in enumerate(cols_interes):
+    plt.subplot(1, 3, i+1)
+    sns.boxplot(y=df[col])
+    plt.title(f'Distribución de {col}')
+
+plt.tight_layout()
+plt.show()
+
+# Aplicando filtros lógicos de negocio
+df = df[(df['Edad'] >= 18) & (df['Edad'] <= 100)]
+
+# Limpiamos valores extremos en Deuda_Ratio (por ejemplo, quitando el 1% más alto)
+percentil_99 = df['Deuda_Ratio'].quantile(0.99)
+df = df[df['Deuda_Ratio'] < percentil_99]
+
+# Creamos un indicador de "Retrasos Totales"
+df['Total_Veces_Retraso'] = (df['Veces_de_retazo_30-59_dias'] + 
+                             df['Veces_de_retrazo_>=90dias'])
+
+# Verificamos cómo quedó nuestra base final
+print(f"Registros finales para el modelo: {df.shape[0]}")
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+
+# 1. Definimos las características (X) y el objetivo (y)
+X = df.drop(columns=['Id', 'Moroso_Grave'], errors='ignore')
+y = df['Moroso_Grave']
+
+# 2. Dividimos los datos: 80% para entrenar y 20% para evaluar el modelo
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print(f"Entrenando con {len(X_train)} registros y probando con {len(X_test)}.")
+
+# Creamos y entrenamos el modelo
+modelo_banca = LogisticRegression(max_iter=1000)
+modelo_banca.fit(X_train, y_train)
+
+# Hacemos las predicciones con el 20% de datos que el modelo no conoce
+predicciones = modelo_banca.predict(X_test)
+
+# Evaluamos el desempeño
+print("--- Informe de Clasificación ---")
+print(classification_report(y_test, predicciones))
+
+# Calculamos el área bajo la curva ROC (métrica estándar en Kaggle)
+roc_score = roc_auc_score(y_test, modelo_banca.predict_proba(X_test)[:, 1])
+print(f"Puntuación ROC AUC: {roc_score:.4f}")
+
+# Ejemplo: Un cliente de 30 años, con pocos ingresos y muchos retrasos previos
+nuevo_cliente = [[0.9, 30, 5, 0.5, 2000, 5, 2, 0, 7]] # Ajusta según tus columnas
+probabilidad = modelo_banca.predict_proba(nuevo_cliente)[0][1]
+
+print(f"El sistema indica un {probabilidad*100:.2f}% de riesgo de morosidad.")
