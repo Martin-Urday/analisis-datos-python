@@ -3,8 +3,6 @@
 
 !mkdir -p ~/.kaggle
 
-!echo KGAT_e57ba34133bfa1268e51d8f06908b623 > ~/.kaggle/access_token
-
 !chmod 600 ~/.kaggle/access_token
 
 
