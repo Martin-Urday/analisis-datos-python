@@ -116,9 +116,7 @@ df['N_personas_a_cargo'].fillna(moda_dep, inplace=True)
 
 Se generó una **matriz de correlación triangular** para identificar los principales predictores de morosidad.
 
-<p align="center">
-  <img src="assets/correlation_matrix.png" alt="Matriz de Correlación Triangular" width="550">
-</p>
+![Matriz de correlación](assets/correlation_matrix.png)
 
 **Hallazgo clave:** Correlación de **0.98** entre retrasos de 30–59 días y los de 90+ días — los retrasos leves funcionan como señal de alerta temprana de morosidad grave.
 
